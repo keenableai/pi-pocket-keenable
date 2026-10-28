@@ -1,0 +1,19 @@
+{
+    "name": "pi-pocket-keenable",
+    "version": "1.0.0",
+    "description": "Keenable web search and page reading for Pi Pocket: a drop-in module",
+    "private": true,
+    "type": "module",
+    "license": "MIT",
+    "author": "Keenable",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/keenableai/pi-pocket-keenable.git"
+    },
+    "engines": {
+        "node": ">=22.19"
+    },
+    "scripts": {
+        "test": "node --test keenable.test.ts"
+    }
+}
