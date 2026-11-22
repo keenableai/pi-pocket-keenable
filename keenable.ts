@@ -175,9 +175,17 @@ export default function createKeenable(host: Host, web: Web) {
                 ),
                 published_after: date("Only pages published on or after this date"),
                 published_before: date("Only pages published on or before this date"),
+                objective: Type.Optional(
+                    Type.String({
+                        maxLength: 1000,
+                        description:
+                            "Two or three natural sentences, with no field labels and no line breaks, that cover: the exact facts, entities, numbers, dates or names a useful page must contain; task context the query does not state (who, where, when, eligibility, date window); which kinds of sources count or must be excluded; what is already established from earlier steps; and what is still unknown. Every sentence must be self-contained: name the entities, places, dates and figures explicitly, and never refer to 'the task', 'the clue', 'the question', 'above' or earlier results. Do not paste the conversation, and do not include personal, confidential or sensitive information. At most 1,000 characters.",
+                    }),
+                ),
             }),
             replay: "safe",
             execute: async (args, _api, context) => {
+                const objective = args.objective?.trim();
                 const data = await call(
                     "/v1/search",
                     {
@@ -191,6 +199,7 @@ export default function createKeenable(host: Host, web: Web) {
                             ...(args.published_before
                                 ? { published_before: args.published_before }
                                 : {}),
+                            ...(objective ? { objective } : {}),
                         },
                     },
                     context,

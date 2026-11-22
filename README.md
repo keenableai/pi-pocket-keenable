@@ -2,7 +2,7 @@
 
 A drop-in module for [Pi Pocket](https://github.com/TannerMidd/pi-pocket) that gives Pi web search and page reading through [Keenable](https://keenable.ai). It works with no key.
 
-- `keenable_search` searches the web. It gives the title, the address, and the start of the text of each page: 10 pages by default, 20 at most. It can keep to one `site`, and to pages published after or before a date (`published_after`, `published_before`, as `YYYY-MM-DD`).
+- `keenable_search` searches the web. It gives the title, the address, and the start of the text of each page: 10 pages by default, 20 at most. It can keep to one `site`, and to pages published after or before a date (`published_after`, `published_before`, as `YYYY-MM-DD`). An optional `objective` (two or three sentences on what the search is for, 1,000 characters at most) is sent with the query, and the ranker uses it to order the results.
 - `keenable_fetch` reads one public page (http or https) as markdown: 20,000 characters by default. Keenable fetches the page, not your server.
 
 Both tools only read. Plan mode lets them run, and a restart can run a call again.

@@ -162,6 +162,17 @@ test("keyless search posts to /v1/search/public with the title header, and fence
     assert.match(text, /word…\n<\/results>$/);
 });
 
+test("search sends a trimmed objective, and leaves a blank one out", async () => {
+    stubFetch();
+    reply = { json: { results: [page(1)] } };
+
+    await make().run("keenable_search", { query: "q", objective: "  Find the 2026 pricing.  " });
+    await make().run("keenable_search", { query: "q", objective: "   " });
+
+    assert.equal((calls[0]!.body as Record<string, unknown>).objective, "Find the 2026 pricing.");
+    assert.equal("objective" in (calls[1]!.body as Record<string, unknown>), false);
+});
+
 test("with a key, search goes to /v1/search with X-API-Key, and the key is in no result", async () => {
     stubFetch();
     reply = { json: { results: [page(1)] } };
