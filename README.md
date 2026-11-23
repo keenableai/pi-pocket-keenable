@@ -22,7 +22,7 @@ Keyless calls have rate limits for each IP address. To raise them, put a Keenabl
 
 - Each call goes to `https://api.keenable.ai`, with the header `X-Keenable-Title: Pi Pocket`.
 - `keenable_search` sends the query and its filters. `keenable_fetch` sends the page's address.
-- With a key, calls go to `/v1/search` and `/v1/fetch`, with the key in `X-API-Key`. With no key, they go to `/v1/search/public` and `/v1/fetch/public`.
+- With a key, calls go to `POST /v1/search` and `POST /v1/fetch`, with the key in `X-API-Key`. With no key, they go to `POST /v1/search/public` and `GET /v1/fetch/public` (POST fetch needs a key).
 - An address on this machine or on a private network (`localhost`, `*.local`, `10.x`, `192.168.x`, and so on) is refused before any call.
 - The module reads no other files, settings, or secrets, and sends no telemetry.
 

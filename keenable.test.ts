@@ -221,12 +221,30 @@ test("fetch reads a page through /v1/fetch/public, cut and fenced", async () => 
 
 test("with a key, fetch goes to /v1/fetch", async () => {
     stubFetch();
-    reply = { json: { url: "https://example.org/", content: "hello" } };
+    reply = { json: { results: [{ url: "https://example.org/", content: "hello" }] } };
 
     await make({ apiKey: "kn-secret-key" }).run("keenable_fetch", { url: "https://example.org/" });
 
+    assert.equal(calls[0]!.method, "POST");
     assert.equal(calls[0]!.url.pathname, "/v1/fetch");
+    assert.deepEqual(calls[0]!.body, { urls: ["https://example.org/"] });
     assert.equal(calls[0]!.headers["x-api-key"], "kn-secret-key");
+});
+
+test("fetch reports a page that failed", async () => {
+    stubFetch();
+    reply = {
+        json: {
+            results: [
+                { url: "https://example.org/", error: { status: 404, message: "Page not found" } },
+            ],
+        },
+    };
+
+    await assert.rejects(
+        make({ apiKey: "kn-secret-key" }).run("keenable_fetch", { url: "https://example.org/" }),
+        /could not read that page \(404\).*Page not found/,
+    );
 });
 
 test("fetch sends no local, private, or non-web address to Keenable", async () => {
@@ -360,7 +378,9 @@ test("in Pi Pocket: the module loads as a drop-in, and Pi gets the results", asy
 });
 
 test("in Pi Pocket: the owner's key from the settings goes to Keenable", async () => {
-    reply = { json: { url: "https://example.org/", title: "Example", content: "Hello." } };
+    reply = {
+        json: { results: [{ url: "https://example.org/", title: "Example", content: "Hello." }] },
+    };
 
     const said = await inPocket(
         "keenable_fetch",
@@ -369,7 +389,9 @@ test("in Pi Pocket: the owner's key from the settings goes to Keenable", async (
     );
 
     assert.match(said, /tool said: The text of “https:\/\/example\.org\/”, titled “Example”/);
+    assert.equal(calls[0]!.method, "POST");
     assert.equal(calls[0]!.url.pathname, "/v1/fetch");
+    assert.deepEqual(calls[0]!.body, { urls: ["https://example.org/"] });
     assert.equal(calls[0]!.headers["x-api-key"], "kn-secret-key");
     assert.doesNotMatch(said, /kn-secret-key/);
 });
