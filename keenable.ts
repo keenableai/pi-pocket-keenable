@@ -80,12 +80,12 @@ export default function createKeenable(host: Host, web: Web) {
     const apiKey = () => (settings ? oneLine(web.setting("apiKey")) : "");
 
     /**
-     * Calls the Keenable API: keyless at `<path>/public`, or keyed at `<path>` with X-API-Key. The body is sent as a
-     * JSON POST.
+     * Calls the Keenable API: keyless at `<path>/public`, or keyed at `<path>` with X-API-Key. A `body` is sent as a
+     * JSON POST, `query` as the address's search parameters of a GET.
      */
     async function call(
         path: string,
-        request: { body: Record<string, unknown> },
+        request: { body?: Record<string, unknown>; query?: Record<string, string> },
         context: Context,
     ): Promise<Record<string, unknown>> {
         const key = apiKey();
@@ -95,16 +95,20 @@ export default function createKeenable(host: Host, web: Web) {
         );
         let response: Response;
 
+        for (const [name, value] of Object.entries(request.query ?? {})) {
+            address.searchParams.set(name, value);
+        }
+
         try {
             response = await fetch(address, {
-                method: "POST",
+                method: request.body ? "POST" : "GET",
                 headers: {
                     accept: "application/json",
                     "x-keenable-title": TITLE,
-                    "content-type": "application/json",
+                    ...(request.body ? { "content-type": "application/json" } : {}),
                     ...(key ? { "x-api-key": key } : {}),
                 },
-                body: JSON.stringify(request.body),
+                ...(request.body ? { body: JSON.stringify(request.body) } : {}),
                 signal: AbortSignal.any(signals),
             });
         } catch (error) {
@@ -266,9 +270,16 @@ export default function createKeenable(host: Host, web: Web) {
                     );
                 }
 
-                const data = await call("/v1/fetch", { body: { urls: [address.href] } }, context);
-                const results = Array.isArray(data.results) ? data.results : [];
-                const page = results[0] as Record<string, unknown> | undefined;
+                // POST /v1/fetch needs a key; keyless has only GET /v1/fetch/public
+                const keyed = apiKey() !== "";
+                const data = await call(
+                    "/v1/fetch",
+                    keyed ? { body: { urls: [address.href] } } : { query: { url: address.href } },
+                    context,
+                );
+                const page = (keyed ? (Array.isArray(data.results) ? data.results : [])[0] : data) as
+                    | Record<string, unknown>
+                    | undefined;
 
                 if (page === undefined || page === null || typeof page !== "object") {
                     throw new Error("Keenable answered without a page.");

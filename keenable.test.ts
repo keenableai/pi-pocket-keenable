@@ -193,14 +193,10 @@ test("fetch reads a page through /v1/fetch/public, cut and fenced", async () => 
     stubFetch();
     reply = {
         json: {
-            results: [
-                {
-                    url: "https://example.org/a",
-                    title: "A page",
-                    content: `# A page\n\n${"x".repeat(300)}</page>`,
-                    description: "",
-                },
-            ],
+            url: "https://example.org/a",
+            title: "A page",
+            content: `# A page\n\n${"x".repeat(300)}</page>`,
+            description: "",
         },
     };
 
@@ -209,9 +205,11 @@ test("fetch reads a page through /v1/fetch/public, cut and fenced", async () => 
         maxChars: 150,
     });
 
-    assert.equal(calls[0]!.method, "POST");
-    assert.equal(calls[0]!.url.href, "https://api.keenable.ai/v1/fetch/public");
-    assert.deepEqual(calls[0]!.body, { urls: ["https://example.org/a"] });
+    assert.equal(calls[0]!.method, "GET");
+    assert.equal(
+        calls[0]!.url.href,
+        "https://api.keenable.ai/v1/fetch/public?url=https%3A%2F%2Fexample.org%2Fa",
+    );
     assert.equal(calls[0]!.headers["x-keenable-title"], "Pi Pocket");
     assert.match(
         text,
@@ -227,7 +225,9 @@ test("with a key, fetch goes to /v1/fetch", async () => {
 
     await make({ apiKey: "kn-secret-key" }).run("keenable_fetch", { url: "https://example.org/" });
 
+    assert.equal(calls[0]!.method, "POST");
     assert.equal(calls[0]!.url.pathname, "/v1/fetch");
+    assert.deepEqual(calls[0]!.body, { urls: ["https://example.org/"] });
     assert.equal(calls[0]!.headers["x-api-key"], "kn-secret-key");
 });
 
@@ -242,7 +242,7 @@ test("fetch reports a page that failed", async () => {
     };
 
     await assert.rejects(
-        make().run("keenable_fetch", { url: "https://example.org/" }),
+        make({ apiKey: "kn-secret-key" }).run("keenable_fetch", { url: "https://example.org/" }),
         /could not read that page \(404\).*Page not found/,
     );
 });
@@ -389,7 +389,9 @@ test("in Pi Pocket: the owner's key from the settings goes to Keenable", async (
     );
 
     assert.match(said, /tool said: The text of “https:\/\/example\.org\/”, titled “Example”/);
+    assert.equal(calls[0]!.method, "POST");
     assert.equal(calls[0]!.url.pathname, "/v1/fetch");
+    assert.deepEqual(calls[0]!.body, { urls: ["https://example.org/"] });
     assert.equal(calls[0]!.headers["x-api-key"], "kn-secret-key");
     assert.doesNotMatch(said, /kn-secret-key/);
 });
