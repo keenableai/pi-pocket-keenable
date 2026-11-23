@@ -173,6 +173,44 @@ test("search sends a trimmed objective, and leaves a blank one out", async () =>
     assert.equal("objective" in (calls[1]!.body as Record<string, unknown>), false);
 });
 
+test("an objective is checked after trimming: padding does not count, and the limit is in code points", async () => {
+    stubFetch();
+    reply = { json: { results: [page(1)] } };
+
+    // 1,000 characters plus padding: more than 1,000 before the trim, exactly 1,000 after it.
+    const padded = `  ${"x".repeat(1000)}  `;
+    await make().run("keenable_search", { query: "q", objective: padded });
+    assert.equal((calls[0]!.body as Record<string, unknown>).objective, "x".repeat(1000));
+
+    // 1,000 emoji are 2,000 UTF-16 units but 1,000 code points.
+    const emoji = "😀".repeat(1000);
+    await make().run("keenable_search", { query: "q", objective: ` ${emoji} ` });
+    assert.equal((calls[1]!.body as Record<string, unknown>).objective, emoji);
+});
+
+test("an objective over 1,000 characters after trimming is refused before any request", async () => {
+    stubFetch();
+
+    await assert.rejects(
+        make().run("keenable_search", { query: "q", objective: "x".repeat(1001) }),
+        /The objective is 1001 characters; the limit is 1000/,
+    );
+    await assert.rejects(
+        make().run("keenable_search", { query: "q", objective: ` ${"😀".repeat(1001)} ` }),
+        /1001 characters/,
+    );
+    assert.equal(calls.length, 0);
+});
+
+test("the objective schema leaves the length to execute, so padding is not rejected by the host", () => {
+    const search = make().extension.tools.find((tool) => tool.name === "keenable_search") as unknown as {
+        parameters: { properties: { objective: { maxLength?: number; description: string } } };
+    };
+
+    assert.equal(search.parameters.properties.objective.maxLength, undefined);
+    assert.match(search.parameters.properties.objective.description, /1,000 characters/);
+});
+
 test("with a key, search goes to /v1/search with X-API-Key, and the key is in no result", async () => {
     stubFetch();
     reply = { json: { results: [page(1)] } };
