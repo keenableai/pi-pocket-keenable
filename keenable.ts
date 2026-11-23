@@ -80,12 +80,12 @@ export default function createKeenable(host: Host, web: Web) {
     const apiKey = () => (settings ? oneLine(web.setting("apiKey")) : "");
 
     /**
-     * Calls the Keenable API: keyless at `<path>/public`, or keyed at `<path>` with X-API-Key. A `body` is sent as a
-     * JSON POST, `query` as the address's search parameters of a GET.
+     * Calls the Keenable API: keyless at `<path>/public`, or keyed at `<path>` with X-API-Key. The body is sent as a
+     * JSON POST.
      */
     async function call(
         path: string,
-        request: { body?: Record<string, unknown>; query?: Record<string, string> },
+        request: { body: Record<string, unknown> },
         context: Context,
     ): Promise<Record<string, unknown>> {
         const key = apiKey();
@@ -95,20 +95,16 @@ export default function createKeenable(host: Host, web: Web) {
         );
         let response: Response;
 
-        for (const [name, value] of Object.entries(request.query ?? {})) {
-            address.searchParams.set(name, value);
-        }
-
         try {
             response = await fetch(address, {
-                method: request.body ? "POST" : "GET",
+                method: "POST",
                 headers: {
                     accept: "application/json",
                     "x-keenable-title": TITLE,
-                    ...(request.body ? { "content-type": "application/json" } : {}),
+                    "content-type": "application/json",
                     ...(key ? { "x-api-key": key } : {}),
                 },
-                ...(request.body ? { body: JSON.stringify(request.body) } : {}),
+                body: JSON.stringify(request.body),
                 signal: AbortSignal.any(signals),
             });
         } catch (error) {
@@ -270,7 +266,24 @@ export default function createKeenable(host: Host, web: Web) {
                     );
                 }
 
-                const page = await call("/v1/fetch", { query: { url: address.href } }, context);
+                const data = await call("/v1/fetch", { body: { urls: [address.href] } }, context);
+                const results = Array.isArray(data.results) ? data.results : [];
+                const page = results[0] as Record<string, unknown> | undefined;
+
+                if (page === undefined || page === null || typeof page !== "object") {
+                    throw new Error("Keenable answered without a page.");
+                }
+
+                const failure = page.error;
+
+                if (failure !== undefined && failure !== null && typeof failure === "object") {
+                    const { status, message } = failure as Record<string, unknown>;
+                    const detail = oneLine(message);
+
+                    throw new Error(
+                        `Keenable could not read that page${status ? ` (${oneLine(status)})` : ""}${detail ? `: ${host.text.quoted(detail, 200)}` : "."}`,
+                    );
+                }
 
                 return {
                     output: [
