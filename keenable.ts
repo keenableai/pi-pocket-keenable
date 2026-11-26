@@ -289,7 +289,31 @@ export default function createKeenable(host: Host, web: Web) {
                     );
                 }
 
-                const page = await call("/v1/fetch", { query: { url: address.href } }, context);
+                // POST /v1/fetch needs a key; keyless has only GET /v1/fetch/public
+                const keyed = apiKey() !== "";
+                const data = await call(
+                    "/v1/fetch",
+                    keyed ? { body: { urls: [address.href] } } : { query: { url: address.href } },
+                    context,
+                );
+                const page = (keyed ? (Array.isArray(data.results) ? data.results : [])[0] : data) as
+                    | Record<string, unknown>
+                    | undefined;
+
+                if (page === undefined || page === null || typeof page !== "object") {
+                    throw new Error("Keenable answered without a page.");
+                }
+
+                const failure = page.error;
+
+                if (failure !== undefined && failure !== null && typeof failure === "object") {
+                    const { status, message } = failure as Record<string, unknown>;
+                    const detail = oneLine(message);
+
+                    throw new Error(
+                        `Keenable could not read that page${status ? ` (${oneLine(status)})` : ""}${detail ? `: ${host.text.quoted(detail, 200)}` : "."}`,
+                    );
+                }
 
                 return {
                     output: [
