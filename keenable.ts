@@ -19,6 +19,8 @@ const TITLE = "Pi Pocket";
 const TIMEOUT_MS = 30_000;
 /** Each result's snippet is raw page text of a few thousand characters: Pi gets its start. */
 const SNIPPET_CHARS = 500;
+/** Longest `objective` the API accepts: Unicode code points, counted after trimming. */
+const OBJECTIVE_MAX_LENGTH = 1000;
 
 type Context = { readonly abortSignal?: AbortSignal | undefined };
 
@@ -175,9 +177,25 @@ export default function createKeenable(host: Host, web: Web) {
                 ),
                 published_after: date("Only pages published on or after this date"),
                 published_before: date("Only pages published on or before this date"),
+                objective: Type.Optional(
+                    Type.String({
+                        description:
+                            "Optional. Use for multi-step or ambiguous searches; omit for simple lookups. In one to three plain sentences, say what the search is for, what the query leaves out (where, when, which sources count) and what earlier searches found. Don't restate the question. Never include user identifiers, personal details, confidential information or conversation content, because this text is sent to Keenable's search service. At most 1,000 characters.",
+                    }),
+                ),
             }),
             replay: "safe",
             execute: async (args, _api, context) => {
+                // The schema cannot check the length: Pi validates the raw value, and the limit counts
+                // Unicode code points after trimming, as the Keenable API does.
+                const objective = args.objective?.trim();
+
+                if (objective && [...objective].length > OBJECTIVE_MAX_LENGTH) {
+                    throw new Error(
+                        `The objective is ${[...objective].length} characters; the limit is ${OBJECTIVE_MAX_LENGTH}. Shorten it.`,
+                    );
+                }
+
                 const data = await call(
                     "/v1/search",
                     {
@@ -191,6 +209,7 @@ export default function createKeenable(host: Host, web: Web) {
                             ...(args.published_before
                                 ? { published_before: args.published_before }
                                 : {}),
+                            ...(objective ? { objective } : {}),
                         },
                     },
                     context,
